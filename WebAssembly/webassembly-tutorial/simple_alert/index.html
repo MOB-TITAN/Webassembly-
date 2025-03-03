@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WASM Alert</title>
+</head>
+<body>
+    <h1>WebAssembly Alert Example</h1>
+
+    <script>
+        let wasmInstance;
+
+        // Load and initialize WebAssembly module
+        WebAssembly.instantiateStreaming(fetch("alert.wasm"), {
+            env: {
+                emscripten_run_script: (ptr) => {
+                    // Convert WASM memory pointer to string
+                    const memory = new Uint8Array(wasmInstance.exports.memory.buffer);
+                    let str = "";
+                    while (memory[ptr] !== 0) {
+                        str += String.fromCharCode(memory[ptr++]);
+                    }
+                    eval(str); // Run JS code from WebAssembly
+                }
+            }
+        })
+        .then(result => {
+            wasmInstance = result.instance;
+            console.log("WASM Module Loaded");
+            
+            // Call show_alert automatically
+            wasmInstance.exports.show_alert();
+        })
+        .catch(console.error);
+    </script>
+</body>
+</html>
